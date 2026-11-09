@@ -13,6 +13,7 @@ import os
 import pydoc
 import subprocess
 import sys
+import tempfile
 import time
 from os.path import join as pjoin
 
@@ -210,27 +211,39 @@ class NLODiagramDisplaysInterface(MasterCmd):
         return txt_files
 
     def _nlo_merge_diagrams_text_files(self, dirpath, txt_files):
-        """Concatenate the text files into all_diagrams_text.txt."""
+        """Concatenate into all_diagrams_text.txt via a temporary file."""
         merged_file = pjoin(dirpath, 'all_diagrams_text.txt')
+        fd, tmp_file = tempfile.mkstemp(prefix='.all_diagrams_text',
+                                        suffix='.txt', dir=dirpath)
+        os.close(fd)
         try:
-            with open(merged_file, 'w') as out_fs:
+            with open(tmp_file, 'w') as out_fs:
                 for f in sorted(txt_files):
                     with open(f, 'r') as in_fs:
                         out_fs.write(in_fs.read())
                         out_fs.write('\n\n')
+            os.replace(tmp_file, merged_file)
             logger.info('Merged diagrams text into ' + merged_file)
         except IOError as e:
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
             logger.warning('Failed to merge text files: %s' % str(e))
 
     def _nlo_merge_diagrams_eps(self, dirpath, eps_files, no_open=False):
-        """Merge the EPS files into all_diagrams.pdf."""
+        """Merge EPS into all_diagrams.pdf via a temporary file."""
         output_pdf = pjoin(dirpath, 'all_diagrams.pdf')
+        fd, tmp_pdf = tempfile.mkstemp(prefix='.all_diagrams', suffix='.pdf',
+                                       dir=dirpath)
+        os.close(fd)
         eps_files_sorted_abs = sorted(os.path.abspath(f) for f in eps_files)
         gs_cmd = ['gs', '-dBATCH', '-dNOPAUSE', '-q', '-sDEVICE=pdfwrite',
-                  '-sOutputFile=' + os.path.abspath(output_pdf)] + eps_files_sorted_abs
+                  '-sOutputFile=' + os.path.abspath(tmp_pdf)] + eps_files_sorted_abs
         try:
             subprocess.check_call(gs_cmd, shell=False)
+            os.replace(tmp_pdf, output_pdf)
         except (subprocess.CalledProcessError, OSError) as e:
+            if os.path.exists(tmp_pdf):
+                os.remove(tmp_pdf)
             logger.warning('Failed to merge diagrams into PDF with '
                            'ghostscript: %s' % str(e))
             logger.warning("Make sure 'gs' (ghostscript) is installed and "
