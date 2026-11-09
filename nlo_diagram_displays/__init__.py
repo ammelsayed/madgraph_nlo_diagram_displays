@@ -4,12 +4,13 @@ MG5aMC 3.8.x added these options for LO displays (PR #398). The aMC@NLO
 interface still rejects them and cannot merge born/real/loop diagrams into a
 single PDF. This plugin ports the NLO side of PR #482 without patching MG5.
 
-Only ``display diagrams`` at NLO is changed; everything else is
-dispatched to the stock interfaces.
+Only ``display diagrams`` and ``display diagrams_text`` at NLO are changed;
+everything else is dispatched to the stock interfaces.
 """
 
 import logging
 import os
+import pydoc
 import subprocess
 import sys
 import time
@@ -35,12 +36,12 @@ if _parser is None or not any(
 
 
 class NLODiagramDisplaysInterface(MasterCmd):
-    """Keep the NLO/LO switcher, override only the NLO display command."""
+    """Keep the NLO/LO switcher, override only the two NLO display commands."""
 
     def do_display(self, line, *args, **opts):
         cmd_args = self.split_arg(line)
         if self.current_interface != 'aMC@NLO' or not cmd_args or \
-                cmd_args[0] != 'diagrams':
+                cmd_args[0] not in ('diagrams', 'diagrams_text'):
             return super(NLODiagramDisplaysInterface, self).do_display(
                 line, *args, **opts)
         self._nlo_check_display(cmd_args)
@@ -88,6 +89,110 @@ class NLODiagramDisplaysInterface(MasterCmd):
                 self._nlo_merge_diagrams_eps(dirpath, eps_files, no_open)
             self._curr_amps = diagram_generation.AmplitudeList()
             return
+
+        # diagrams_text
+        dtype, rest = self._nlo_split_diagram_type(args)
+        if dtype:
+            key = 'loop' if dtype == 'virt' else dtype
+            self._curr_amps = get_amps_dict[key]()
+            if not self._curr_amps:
+                raise self.InvalidCmd('No virtuals have been generated')
+        dirpath, no_open, merge = self._nlo_parse_display_output_args(rest)
+        if dirpath is None and (no_open or merge):
+            raise self.InvalidCmd(
+                '--no_open and --merge require an explicit directory path, '
+                'e.g. display diagrams_text ./ --no_open')
+        text = None
+        if dtype:
+            text = '\n'.join(amp.nice_string() for amp in self._curr_amps)
+            if dirpath:
+                self._nlo_write_diagrams_text_files(
+                    dirpath, merge=merge, prefix=key + '_')
+        else:
+            text = 'Born diagrams:\n'
+            text += '\n'.join(amp.nice_string()
+                              for amp in get_amps_dict['born']())
+            text += '\n\nReal diagrams:\n'
+            text += '\n'.join(amp.nice_string()
+                              for amp in get_amps_dict['real']())
+            text += '\n\nLoop diagrams:\n'
+            text += '\n'.join(amp.nice_string()
+                              for amp in get_amps_dict['loop']())
+            if dirpath:
+                txt_files = []
+                for diag_type, get_amps in get_amps_dict.items():
+                    self._curr_amps = get_amps()
+                    if self._curr_amps:
+                        txt_files += self._nlo_write_diagrams_text_files(
+                            dirpath, prefix=diag_type + '_')
+                if merge and txt_files:
+                    merged_file = pjoin(dirpath, 'all_diagrams_text.txt')
+                    try:
+                        with open(merged_file, 'w') as out_fs:
+                            for f in sorted(txt_files):
+                                with open(f, 'r') as in_fs:
+                                    out_fs.write(in_fs.read())
+                                    out_fs.write('\n\n')
+                        logger.info('Merged diagrams text into ' + merged_file)
+                    except IOError as e:
+                        logger.warning('Failed to merge text files: %s' % str(e))
+        if not no_open:
+            pydoc.pager(text)
+        self._curr_amps = diagram_generation.AmplitudeList()
+
+    @staticmethod
+    def _nlo_split_diagram_type(args):
+        """Remove an optional born/real/virt/loop selector from the arguments."""
+        if len(args) >= 2 and args[1] in ('born', 'real', 'virt', 'loop'):
+            return ('virt' if args[1] == 'loop' else args[1]), args[2:]
+        return None, args[1:]
+
+    def _nlo_parse_display_output_args(self, line_args):
+        """Return (directory, no_open, merge), creating the directory if needed."""
+        parser = mg_interface._display_text_parser
+        alias = {'-no_open': '--no_open', '-merge': '--merge'}
+        (options, args) = parser.parse_args(
+            [alias.get(a, a) for a in line_args])
+        if len(args) > 1:
+            raise self.InvalidCmd('Too many arguments: %s' % ' '.join(args))
+        if not args:
+            return None, options.no_open, options.merge
+        if not os.path.isdir(args[0]):
+            try:
+                os.makedirs(args[0], exist_ok=True)
+            except OSError as e:
+                raise self.InvalidCmd(
+                    'Cannot create output directory %s: %s' % (args[0], str(e)))
+        return args[0], options.no_open, options.merge
+
+    def _nlo_write_diagrams_text_files(self, dirpath, merge=False, prefix=''):
+        """Write one text file per amplitude, optionally merged."""
+        amplitudes = diagram_generation.AmplitudeList()
+        for amp in self._curr_amps:
+            amplitudes.extend(amp.get_amplitudes())
+
+        txt_files = []
+        for amp in amplitudes:
+            filename = pjoin(
+                dirpath, 'diagrams_' + prefix +
+                amp.get('process').shell_string() + '.txt')
+            with open(filename, 'w') as fs:
+                fs.write(amp.nice_string())
+            logger.info('Wrote file ' + filename)
+            txt_files.append(filename)
+
+        if merge and txt_files:
+            merged_file = pjoin(dirpath, 'all_diagrams_text.txt')
+            try:
+                with open(merged_file, 'w') as out_fs:
+                    for f in sorted(txt_files):
+                        with open(f, 'r') as in_fs:
+                            out_fs.write(in_fs.read())
+                            out_fs.write('\n\n')
+                logger.info('Merged diagrams text into ' + merged_file)
+            except IOError as e:
+                logger.warning('Failed to merge text files: %s' % str(e))
+        return txt_files
 
     def _nlo_merge_diagrams_eps(self, dirpath, eps_files, no_open=False):
         """Merge the EPS files into all_diagrams.pdf."""
