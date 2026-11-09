@@ -126,16 +126,7 @@ class NLODiagramDisplaysInterface(MasterCmd):
                         txt_files += self._nlo_write_diagrams_text_files(
                             dirpath, prefix=diag_type + '_')
                 if merge and txt_files:
-                    merged_file = pjoin(dirpath, 'all_diagrams_text.txt')
-                    try:
-                        with open(merged_file, 'w') as out_fs:
-                            for f in sorted(txt_files):
-                                with open(f, 'r') as in_fs:
-                                    out_fs.write(in_fs.read())
-                                    out_fs.write('\n\n')
-                        logger.info('Merged diagrams text into ' + merged_file)
-                    except IOError as e:
-                        logger.warning('Failed to merge text files: %s' % str(e))
+                    self._nlo_merge_diagrams_text_files(dirpath, txt_files)
         if not no_open:
             pydoc.pager(text)
         self._curr_amps = diagram_generation.AmplitudeList()
@@ -182,17 +173,21 @@ class NLODiagramDisplaysInterface(MasterCmd):
             txt_files.append(filename)
 
         if merge and txt_files:
-            merged_file = pjoin(dirpath, 'all_diagrams_text.txt')
-            try:
-                with open(merged_file, 'w') as out_fs:
-                    for f in sorted(txt_files):
-                        with open(f, 'r') as in_fs:
-                            out_fs.write(in_fs.read())
-                            out_fs.write('\n\n')
-                logger.info('Merged diagrams text into ' + merged_file)
-            except IOError as e:
-                logger.warning('Failed to merge text files: %s' % str(e))
+            self._nlo_merge_diagrams_text_files(dirpath, txt_files)
         return txt_files
+
+    def _nlo_merge_diagrams_text_files(self, dirpath, txt_files):
+        """Concatenate the text files into all_diagrams_text.txt."""
+        merged_file = pjoin(dirpath, 'all_diagrams_text.txt')
+        try:
+            with open(merged_file, 'w') as out_fs:
+                for f in sorted(txt_files):
+                    with open(f, 'r') as in_fs:
+                        out_fs.write(in_fs.read())
+                        out_fs.write('\n\n')
+            logger.info('Merged diagrams text into ' + merged_file)
+        except IOError as e:
+            logger.warning('Failed to merge text files: %s' % str(e))
 
     def _nlo_merge_diagrams_eps(self, dirpath, eps_files, no_open=False):
         """Merge the EPS files into all_diagrams.pdf."""
