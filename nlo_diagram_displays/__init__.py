@@ -69,10 +69,11 @@ class NLODiagramDisplaysInterface(MasterCmd):
             dtype, rest = self._nlo_split_diagram_type(args)
             if dtype:
                 key = 'loop' if dtype == 'virt' else dtype
-                self._curr_amps = get_amps_dict[key]()
+                self._curr_amps = self._nlo_get_displayed_amps(
+                    get_amps_dict[key], key)
                 if not self._curr_amps:
-                    raise self.InvalidCmd(
-                        'No virtuals have been generated')
+                    self._curr_amps = diagram_generation.AmplitudeList()
+                    return
             dirpath, no_open, merge = self._nlo_parse_display_output_args(rest)
             eps_files = []
             if dtype:
@@ -94,9 +95,11 @@ class NLODiagramDisplaysInterface(MasterCmd):
         dtype, rest = self._nlo_split_diagram_type(args)
         if dtype:
             key = 'loop' if dtype == 'virt' else dtype
-            self._curr_amps = get_amps_dict[key]()
+            self._curr_amps = self._nlo_get_displayed_amps(
+                get_amps_dict[key], key)
             if not self._curr_amps:
-                raise self.InvalidCmd('No virtuals have been generated')
+                self._curr_amps = diagram_generation.AmplitudeList()
+                return
         dirpath, no_open, merge = self._nlo_parse_display_output_args(rest)
         if dirpath is None and (no_open or merge):
             raise self.InvalidCmd(
@@ -130,6 +133,18 @@ class NLODiagramDisplaysInterface(MasterCmd):
         if not no_open:
             pydoc.pager(text)
         self._curr_amps = diagram_generation.AmplitudeList()
+
+    def _nlo_get_displayed_amps(self, get_amps, dtype, kind='diagrams'):
+        """Return the requested amplitudes, printing a skip message if empty."""
+        amps = get_amps()
+        if not amps:
+            name = 'virt' if dtype == 'loop' else dtype
+            if kind == 'processes':
+                logger.info('No "%s" processes exist. Skipping ...' % name)
+            else:
+                logger.info('No "%s" diagrams exist for this process. '
+                            'Skipping ...' % name)
+        return amps
 
     @staticmethod
     def _nlo_split_diagram_type(args):
