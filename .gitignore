@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.eps
+*.pdf
+*.txt.tmp
+.MG5*
