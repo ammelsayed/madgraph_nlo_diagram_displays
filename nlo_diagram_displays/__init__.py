@@ -54,10 +54,21 @@ class NLODiagramDisplaysInterface(MasterCmd):
         """Validate, but do not reject --no_open / --merge like CheckFKS does."""
         mg_interface.MadGraphCmd.check_display(self, args)
 
-        if len(args) >= 3 and args[1] not in ('born', 'loop', 'virt', 'real'):
+        # Drawing controls and flags must not be mistaken for a diagram type
+        # or for the output directory.
+        alias = {'-no_open': '--no_open', '-merge': '--merge'}
+        if args[0] == 'diagrams':
+            positional = mg_interface._draw_parser.parse_args(
+                [alias.get(a, a) for a in args[1:]])[1]
+        else:
+            positional = mg_interface._display_text_parser.parse_args(
+                [alias.get(a, a) for a in args[1:]])[1]
+
+        if len(positional) >= 2 and \
+                positional[0] not in ('born', 'loop', 'virt', 'real'):
             raise self.InvalidCmd(
                 'Can only display born, loop (virt) or real diagrams, not %s.'
-                % args[1])
+                % positional[0])
 
     def _nlo_do_display(self, args):
         get_amps_dict = {
@@ -74,7 +85,12 @@ class NLODiagramDisplaysInterface(MasterCmd):
                 if not self._curr_amps:
                     self._curr_amps = diagram_generation.AmplitudeList()
                     return
-            dirpath, no_open, merge = self._nlo_parse_display_output_args(rest)
+            dirpath, no_open, merge = self._nlo_parse_display_output_args(
+                rest, mg_interface._draw_parser)
+            if merge and dirpath is None:
+                raise self.InvalidCmd(
+                    '--merge requires an explicit directory path, '
+                    'e.g. display diagrams ./ --merge')
             eps_files = []
             if dtype:
                 eps_files += self._nlo_draw(' '.join(rest), Dtype=key,
@@ -149,13 +165,15 @@ class NLODiagramDisplaysInterface(MasterCmd):
     @staticmethod
     def _nlo_split_diagram_type(args):
         """Remove an optional born/real/virt/loop selector from the arguments."""
-        if len(args) >= 2 and args[1] in ('born', 'real', 'virt', 'loop'):
-            return ('virt' if args[1] == 'loop' else args[1]), args[2:]
+        for i, arg in enumerate(args[1:], 1):
+            if arg in ('born', 'real', 'virt', 'loop'):
+                return ('virt' if arg == 'loop' else arg), \
+                    args[1:i] + args[i + 1:]
         return None, args[1:]
 
-    def _nlo_parse_display_output_args(self, line_args):
+    def _nlo_parse_display_output_args(self, line_args, parser=None):
         """Return (directory, no_open, merge), creating the directory if needed."""
-        parser = mg_interface._display_text_parser
+        parser = parser or mg_interface._display_text_parser
         alias = {'-no_open': '--no_open', '-merge': '--merge'}
         (options, args) = parser.parse_args(
             [alias.get(a, a) for a in line_args])
