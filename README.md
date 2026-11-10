@@ -73,6 +73,8 @@ Set `MG5` and `PYTHON` when needed:
 MG5=/path/to/MG5_aMC_v3_8_1 PYTHON=~/miniconda3/envs/py310/bin/python ./tests/smoke.sh
 ```
 
+GitHub Actions runs the suite against MG5aMC 3.8.0, 3.8.1 and 3.8.2.
+
 ## Scope
 
 - Only `display diagrams` and `display diagrams_text` at NLO are changed.
