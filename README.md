@@ -2,7 +2,7 @@
 
 A MadGraph5_aMC@NLO plugin that enables the output options of PR [#398](https://github.com/mg5amcnlo/mg5amcnlo/pull/398) for **NLO** diagram displays.
 
-PR #398 added `--no_open`, an output directory and `--merge` to `display diagrams` and `display diagrams_text` for LO processes (merged into MG5aMC 3.8.0). The aMC@NLO interface still rejects these options for NLO processes. This plugin ports the NLO side of [PR #482](https://github.com/mg5amcnlo/mg5amcnlo/pull/482) as a plugin, so no MG5 source file is modified.
+PR #398 added `--no_open`, an output directory and `--merge` to `display diagrams` and `display diagrams_text` for LO processes (merged into MG5aMC 3.8.0). The aMC@NLO interface still rejects these options for NLO processes. This plugin adds them for NLO without modifying any MG5 source file; the corresponding upstream change is [PR #482](https://github.com/mg5amcnlo/mg5amcnlo/pull/482).
 
 Requires **MG5aMC >= 3.8.0** (the release that contains PR #398). Older releases have no `--no_open`/`--merge` parsers and are rejected at load time.
 
@@ -73,10 +73,9 @@ Set `MG5` and `PYTHON` when needed:
 MG5=/path/to/MG5_aMC_v3_8_1 PYTHON=~/miniconda3/envs/py310/bin/python ./tests/smoke.sh
 ```
 
-GitHub Actions runs the suite against MG5aMC 3.8.0, 3.8.1 and 3.8.2.
+GitHub Actions runs the suite against MG5aMC 3.8.0 and 3.8.1.
 
 ## Scope
 
 - Only `display diagrams` and `display diagrams_text` at NLO are changed.
-- No new MG5 command, no CLI installer, no MadGraph7 adapter.
 - Ghostscript (`gs`) must be on `PATH` for `--merge` to produce a PDF.
