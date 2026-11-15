@@ -52,6 +52,19 @@ display diagrams_text ./diagrams/ttbarQCD --no_open --merge
 
 LO and loop-induced displays are untouched: they keep the stock MG5aMC behaviour.
 
+## Note: loop-induced decay chains (local MG5 fix)
+
+Stock MG5 3.8.1 crashes in `display diagrams` for e.g. `g g > h > l- l+ l- l+ [noborn=QCD]`: empty `structure_repository` but tagged diagrams → `IndexError` in `LoopFeynmanDiagram` (`madgraph/core/drawing.py`). Upstream bug, also in plain `mg5_aMC`. Local fix in `madgraph/core/drawing.py`:
+
+```diff
+- if self.diagram['tag'] and not self.fdstructures is None:   # load_diagram
++ if self.diagram['tag'] and self.fdstructures:
+- if not self.fdstructures is None:                           # need_to_flip
++ if self.fdstructures:
+```
+
+Skip the optional structure pre-loading when empty; the parent builds the real diagram. `display diagrams ... --merge` then works in MadLoop too.
+
 ## Test
 
 Install the plugin first, then run the full suite:
