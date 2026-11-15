@@ -48,6 +48,20 @@ class NLODiagramDisplaysInterface(MasterCmd):
         self._nlo_check_display(cmd_args)
         return self._nlo_do_display(cmd_args)
 
+    def help_display(self, *args, **opts):
+        super(NLODiagramDisplaysInterface, self).help_display(*args, **opts)
+        logger.info("-- NLO diagrams (born/real/loop):", '$MG:BOLD')
+        logger.info("   'display diagrams' / 'display diagrams_text' accept a directory,")
+        logger.info("   --no_open and --merge for NLO processes too (from PR #482).")
+        logger.info("   syntax: display diagrams [born|real|virt|loop] DIR --no_open --merge")
+        logger.info("   One .eps/.txt per amplitude is written (prefixed by diagram type),")
+        logger.info("   then merged into DIR/all_diagrams.pdf or all_diagrams_text.txt.")
+        logger.info("   --merge requires an explicit directory; 'virt' aliases 'loop'.")
+        logger.info("   Without a selector, born, real and loop diagrams are all written.")
+        logger.info("   Ghostscript (gs) must be on PATH to merge into a PDF.")
+        logger.info("   Example: display diagrams ./ttbarQCD --no_open --merge",
+                    '$MG:color:GREEN')
+
     # ------------------------------------------------------------------
     # NLO-only handlers. Prefixed so stock LO/loop behaviour is untouched.
     # ------------------------------------------------------------------

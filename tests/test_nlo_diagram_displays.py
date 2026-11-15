@@ -26,6 +26,14 @@ class TestNLODiagramDisplays(unittest.TestCase):
         os.chdir(self.cwd)
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
+    def test_help_display_shows_nlo_options(self):
+        """help display documents the plugin's NLO output options."""
+        with mock.patch('nlo_diagram_displays.logger') as log:
+            self.cmd.help_display()
+        joined = ' '.join(str(c.args[0]) for c in log.info.call_args_list)
+        self.assertIn('NLO diagrams', joined)
+        self.assertIn('--merge', joined)
+
     def test_lo_display_untouched(self):
         """LO displays keep stock behaviour (no --no_open rejection)."""
         self.do('import model sm')
